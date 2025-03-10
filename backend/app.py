@@ -192,4 +192,5 @@ def add_files():
     return jsonify({"message": "Files added successfully", "vector_store_id": updated_vector_store.id})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=8080, debug=True)
+
