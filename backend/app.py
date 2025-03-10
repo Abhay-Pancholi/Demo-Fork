@@ -11,7 +11,7 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 # OpenAI API key
-# os.environ["OPENAI_API_KEY"] = "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"
+os.environ["OPENAI_API_KEY"] = "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"
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 

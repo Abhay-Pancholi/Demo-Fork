@@ -1,16 +1,17 @@
 # Build stage
-FROM node:18 as build
+FROM node:18 AS build
 WORKDIR /app
 
 # Copy package files and install dependencies
-COPY package.json package-lock.json ./
+COPY frontend/package.json frontend/package-lock.json ./
 RUN npm install --legacy-peer-deps
 
 # Copy the source code
-COPY . .
+COPY frontend/. .
 
 # Build the React app
-RUN NODE_OPTIONS=--openssl-legacy-provider npm run build
+ENV NODE_OPTIONS="--openssl-legacy-provider"
+RUN npm run build
 
 # Serve with Nginx
 FROM nginx:alpine
