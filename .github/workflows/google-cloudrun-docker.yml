@@ -35,7 +35,7 @@ on:
       - main
 
 env:
-  PROJECT_ID: 'inlaid-vehicle-452906-k5' # TODO: update to your Google Cloud project ID
+  PROJECT_ID: 'My First Project' # TODO: update to your Google Cloud project ID
   REGION: 'us-central1' # TODO: update to your region
   SERVICE: 'my-react-flask-app' # TODO: update to your service name
   WORKLOAD_IDENTITY_PROVIDER: '/projects/480596383542/locations/global/workloadIdentityPools/github/providers/github' # TODO: update to your workload identity provider
