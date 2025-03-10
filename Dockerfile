@@ -10,7 +10,7 @@ RUN npm install --legacy-peer-deps
 COPY . .
 
 # Build the React app
-RUN npm run build
+RUN NODE_OPTIONS=--openssl-legacy-provider npm run build
 
 # Serve with Nginx
 FROM nginx:alpine
