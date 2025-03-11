@@ -1,32 +1,3 @@
-# This workflow build and push a Docker container to Google Artifact Registry
-# and deploy it on Cloud Run when a commit is pushed to the "main"
-# branch.
-#
-# To configure this workflow:
-#
-# 1. Enable the following Google Cloud APIs:
-#
-#    - Artifact Registry (artifactregistry.googleapis.com)
-#    - Cloud Run (run.googleapis.com)
-#    - IAM Credentials API (iamcredentials.googleapis.com)
-#
-#    You can learn more about enabling APIs at
-#    https://support.google.com/googleapi/answer/6158841.
-#
-# 2. Create and configure a Workload Identity Provider for GitHub:
-#    https://github.com/google-github-actions/auth#preferred-direct-workload-identity-federation.
-#
-#    Depending on how you authenticate, you will need to grant an IAM principal
-#    permissions on Google Cloud:
-#
-#    - Artifact Registry Administrator (roles/artifactregistry.admin)
-#    - Cloud Run Developer (roles/run.developer)
-#
-#    You can learn more about setting IAM permissions at
-#    https://cloud.google.com/iam/docs/manage-access-other-resources
-#
-# 3. Change the values in the "env" block to match your values.
-
 name: 'Build and Deploy to Cloud Run'
 
 on:
@@ -37,9 +8,12 @@ on:
 env:
   PROJECT_ID: 'inlaid-vehicle-452906-k5' # TODO: update to your Google Cloud project ID
   REGION: 'us-central1' # TODO: update to your region
-  SERVICE: 'gh-demo' # TODO: update to your service name
   WORKLOAD_IDENTITY_PROVIDER: 'projects/480596383542/locations/global/workloadIdentityPools/github/providers/github' # TODO: update to your workload identity provider
   GCP_SERVICE_ACCOUNT: github-actions@inlaid-vehicle-452906-k5.iam.gserviceaccount.com
+
+  FRONTEND_SERVICE: 'frontend-service' # Cloud Run Service Name for Frontend
+  BACKEND_SERVICE: 'backend-service' # Cloud Run Service Name for Backend
+  ARTIFACT_REPO: 'gh-demo' # Name of Artifact Registry repository
 
 jobs:
   deploy:
@@ -50,50 +24,56 @@ jobs:
       id-token: 'write'
 
     steps:
-      - name: 'Checkout'
-        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # actions/checkout@v4
+      - name: 'Checkout Code'
+        uses: 'actions/checkout@v4'
 
-      # Configure Workload Identity Federation and generate an access token.
-      #
-      # See https://github.com/google-github-actions/auth for more options,
-      # including authenticating via a JSON credentials file.
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@v2' # google-github-actions/auth@v2
+        uses: 'google-github-actions/auth@v2'
         with:
           workload_identity_provider: '${{ env.WORKLOAD_IDENTITY_PROVIDER }}'
           service_account: '${{ env.GCP_SERVICE_ACCOUNT }}'
           audience: 'https://iam.googleapis.com/${{ env.WORKLOAD_IDENTITY_PROVIDER }}'
 
-
-
-      # BEGIN - Docker auth and build
-      #
-      # If you already have a container image, you can omit these steps.
+      # Authenticate Docker with Google Artifact Registry
       - name: 'Docker Auth'
-        run: |-
-          gcloud auth configure-docker us-central1-docker.pkg.dev
+        run: |
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
 
-      - name: 'Build and Push Container'
-        run: |-
-         DOCKER_TAG="us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/gh-demo/gh-demo:${{ github.sha }}"
-         echo "DOCKER_TAG=${DOCKER_TAG}"
-         docker build --tag "${DOCKER_TAG}" .
-         docker push "${DOCKER_TAG}"
-      - name: 'Deploy to Cloud Run'
+      # Build and Push Backend Image
+      - name: 'Build and Push Backend Image'
+        run: |
+          BACKEND_TAG="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/backend:${{ github.sha }}"
+          echo "Building Backend Image: ${BACKEND_TAG}"
+          docker build -t "${BACKEND_TAG}" -f backend/Dockerfile .
+          docker push "${BACKEND_TAG}"
 
-        # END - Docker auth and build
+      # Build and Push Frontend Image
+      - name: 'Build and Push Frontend Image'
+        run: |
+          FRONTEND_TAG="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/frontend:${{ github.sha }}"
+          echo "Building Frontend Image: ${FRONTEND_TAG}"
+          docker build -t "${FRONTEND_TAG}" -f frontend/Dockerfile .
+          docker push "${FRONTEND_TAG}"
 
-        uses: 'google-github-actions/deploy-cloudrun@33553064113a37d688aa6937bacbdc481580be17' # google-github-actions/deploy-cloudrun@v2
+      # Deploy Backend to Cloud Run
+      - name: 'Deploy Backend to Cloud Run'
+        uses: 'google-github-actions/deploy-cloudrun@v2'
         with:
-          service: '${{ env.SERVICE }}'
+          service: '${{ env.BACKEND_SERVICE }}'
           region: '${{ env.REGION }}'
-          # NOTE: If using a pre-built image, update the image name below:
+          image: '${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/backend:${{ github.sha }}'
 
-          image: '${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/gh-demo/gh-demo:${{ github.sha }}'
+      # Deploy Frontend to Cloud Run
+      - name: 'Deploy Frontend to Cloud Run'
+        uses: 'google-github-actions/deploy-cloudrun@v2'
+        with:
+          service: '${{ env.FRONTEND_SERVICE }}'
+          region: '${{ env.REGION }}'
+          image: '${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/frontend:${{ github.sha }}'
 
-      # If required, use the Cloud Run URL output in later steps
-      - name: 'Show output'
-        run: |2-
-
-          echo ${{ steps.deploy.outputs.url }}
+      # Show Deployment URLs
+      - name: 'Show Cloud Run URLs'
+        run: |
+          echo "Backend Service URL: ${{ steps.deploy-backend.outputs.url }}"
+          echo "Frontend Service URL: ${{ steps.deploy-frontend.outputs.url }}"
