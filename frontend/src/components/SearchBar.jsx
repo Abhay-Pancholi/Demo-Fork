@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import './SearchBar.css';
 
-const SearchBar = ({ query, setQuery, setChatHistory, language, setLanguage }) => {
+const SearchBar = ({ query, setQuery, setChatHistory, language, setLanguage, setIsGenerating }) => {
     const [loading, setLoading] = useState(false);
 
     const handleSearch = async () => {
-        if (!query.trim()) return;
+        // Ensure query is defined and not just whitespace
+        if (!query || !query.trim()) return;
         setLoading(true);
+        setIsGenerating(true);  // Show "Generating answer..." in ChatContainer
 
         // Add user message to chat history
         setChatHistory(prevChat => [
@@ -15,7 +17,7 @@ const SearchBar = ({ query, setQuery, setChatHistory, language, setLanguage }) =
         ]);
 
         try {
-            const res = await fetch("https://backend-service-480596383542.us-central1.run.app/api/get_answer", {
+            const res = await fetch("https://chatveda.onrender.com/get_answer", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ question: query, language }) // Send selected language
@@ -34,6 +36,7 @@ const SearchBar = ({ query, setQuery, setChatHistory, language, setLanguage }) =
             console.error("Error fetching response:", error);
         } finally {
             setLoading(false);
+            setIsGenerating(false);  // Hide "Generating answer..." when response arrives
         }
     };
 
@@ -47,12 +50,14 @@ const SearchBar = ({ query, setQuery, setChatHistory, language, setLanguage }) =
     return (
         <div className="search-bar">
             <input 
-                type="text" 
-                value={query} 
-                onChange={(e) => setQuery(e.target.value)} 
+                type="text"
+                value={query || ""}  // Default to empty string if query is undefined
+                onChange={(e) => setQuery(e.target.value)}
                 onKeyPress={handleKeyPress} // Detect Enter key
                 placeholder="Ask anything..."
+                disabled={loading}
             />
+            
             <button onClick={handleSearch} disabled={loading}>
                 {loading ? ". . ." : <i className="fas fa-paper-plane"></i>}
             </button>

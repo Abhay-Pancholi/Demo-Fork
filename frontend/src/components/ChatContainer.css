@@ -1,133 +1,65 @@
-/* Chat container */
+/* Chat container - Full height, auto scroll */
 .chat-container {
     display: flex;
     flex-direction: column;
-    align-items: center; /* Center chat content */
+    align-items: stretch;
     width: 100%;
-    max-width: 830px;
-    margin: 0 auto; /* Center the chat container */
-    padding: 0;
-    height: 80vh;
-    /* background-color: transparent; */
-    box-shadow: none;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 10px;
+    height: calc(100vh - 120px); /* Dynamic height based on viewport */
+    max-height: 100vh; /* Allow it to fill the screen */
+    overflow-y: auto; /* Enable scrolling */
     position: relative;
-    top: 80px;
-    overflow-y: auto;
-}
-.chat-container {
-    max-height: 800px; /* Set a proper height for scrolling */
-    overflow-y: auto; /* Enable vertical scrolling */
-  
-    scroll-behavior: smooth; /* Smooth scrolling */
-  
-  
+    box-sizing: border-box;
 }
 
+/* Ensure messages appear at the bottom */
 .chat-messages-wrapper {
     width: 100%;
-    height: 100%;
-    overflow-y: auto; 
-    
-    scrollbar-width: none; /* Hide scrollbar for a cleaner look */
-    padding: 10px; /* Ensure spacing inside */
+    flex-grow: 1; /* Takes remaining space */
+    overflow-y: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end; /* Ensures messages appear at the bottom */
+    scrollbar-width: thin;
+    padding-bottom: env(safe-area-inset-bottom);
 }
 
-
-/* Chat message structure */
+/* Bot & User Message Styling */
 .chat-message {
     display: flex;
     flex-direction: column;
-    align-items: center; /* Center messages */
-    max-width: 60%;
-    margin: 10px 0;
-    padding: 10px;
-    border-radius: 12px;
-    /* word-wrap: break-word; */
-    animation: fadeIn 0.3s ease-in-out;
-    white-space: normal;
-    text-align: center; /* Center text inside bubbles */
-}
-
-/* User messages (Blue bubble) */
-/* User messages (Light Blue Bubble) */
-/* Container holding the messages */
-/* .chat-container {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    width: 100%; /* Ensure it takes full width */
-    /* padding: 0px 10px; 
-}  */
-.chat-container {
-    width: 100%; /* Make it use the full width */
-    max-width: none; /* Remove any max width limits */
-    margin: 0; /* Remove any margins */
-    padding: 10px; /* Adjust padding if needed */
-    box-sizing: border-box; /* Ensure padding doesn't affect width */
-}
-
-/* Bot Messages (Fix width issue) */
-.chat-message.bot {
-    text-align: left;
-    align-self: flex-start;
-    max-width: 100%;  /* Use full width */
-    word-wrap: break-word;
-    white-space: normal;
-    padding: 10px 0;  /* Remove left and right padding */
-    margin: 5px 0;  /* Remove left and right margin */
-    border-radius: 0;  /* Remove rounded edges */
-    background-color: #ffffff; /* Set background to white */
-}
-.chat-container {
-    width: 100%;
-    max-width: none;
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    left: 14px;
-}
-
-.message-sender {
-    display: flex;
-    align-self: flex-start;
-    flex-direction: row;
-}
-
-/* User Messages (Fix width issue) */
-.chat-message.user {
-    text-align: left;
-    justify-content: flex-start;
-    align-self: flex-start;
-    background-color: #e1f5fe;
-    padding: 8px 12px;
-    border-radius: 8px;
-    max-width: 100%; /* Allow message to take full width */
-    margin: 5px 0; /* Remove large spacing */
-}
-
-/* Buttons inside bot messages */
-.chat-message.bot button {
-    width: 100%; /* Make buttons take full width */
-    display: block; /* Ensure proper spacing */
-    margin: 5px 0; /* Reduce extra space between buttons */
-}
-
-
-/* Message Bubble */
-.message-bubble {
-    padding: 10px;
-    border-radius: 10px;
     max-width: 100%;
-    margin-top: -18px;
-   
-   
+    margin: 8px 0;
+    padding: 12px;
+    border-radius: 10px;
+    text-align: justify;
+    word-wrap: break-word;
 }
 
-/* Justify AI response text inside message bubbles */
-.chat-message.bot .message-bubble {
-    /* text-align: justify; */
-    text-justify: inherit;
-    
+/* User Message */
+.chat-message.user {
+    background-color: #e1f5fe;
+    align-self: flex-start;
+    /* margin-top: 75px; */
+}
+
+/* Bot Message */
+.chat-message.bot {
+    background-color: #fff;
+    align-self: flex-start;
+}
+
+/* "Generating Answer..." Visibility */
+.generating-answer {
+    font-size: 14px;
+    font-style: italic;
+    color: gray;
+    text-align: left;
+    margin-top: 5px;
+    padding-left: 10px;
 }
 
 .followup-questions {
@@ -161,11 +93,48 @@
     color: #0056b3;
 }
 
-
-
-/* Responsive - Center Messages on Mobile Screens */
-@media screen and (max-width: 768px) {
-    .chat-message {
-        max-width: 80%;
+/* In ChatContainer.css or your global styles */
+.chat-message.bot .message-sender {
+    font-weight: bold;
+  }
+  
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .chat-container {
+        height: calc(95vh - 140px);
+        width: 110%;
+        top: 90px;
     }
+
+    .chat-message {
+        max-width: 95%;
+    }
+}
+
+/* ✅ Fix for iPhones with Notches */
+@media (max-width: 430px) and (max-height: 932px) {
+    .chat-container {
+        height: calc(90vh - env(safe-area-inset-bottom) - 140px);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+}
+
+@media only screen
+  and (device-width: 393px)
+  and (device-height: 852px)
+  and (-webkit-device-pixel-ratio: 3) {
+  
+  /* Example: Adjust chat container styles for iPhone 15 Pro */
+  .chat-container {
+    /* Put your custom styles here */
+    /* For instance: */
+    max-height: 80vh;   /* or something that fits your layout */
+    padding: 1rem;
+    overflow-y: auto;
+  }
+  
+  /* You can also style other elements if needed */
+  .some-other-class {
+    font-size: 0.95rem;
+  }
 }

@@ -1,7 +1,7 @@
 import React from 'react';
-import { FiMenu, FiX } from 'react-icons/fi'; // FiX is a close icon
+import { FiMenu, FiX } from 'react-icons/fi';
 
-const Sidebar = ({ setQuery, isOpen, setIsOpen }) => {
+const Sidebar = ({ sendMessage, isOpen, setIsOpen }) => {
     const questions = [
         "What are the four Vedas?",
         "Dharma, Karma and Moksha?",
@@ -19,10 +19,10 @@ const Sidebar = ({ setQuery, isOpen, setIsOpen }) => {
         "Puranas and kingship?"
     ];
 
-    // Function to handle question click and close sidebar
+    // When a question is clicked, call sendMessage to directly trigger search.
     const handleQuestionClick = (question) => {
-        setQuery(question);
-        setIsOpen(false);  // Close sidebar after selecting a question
+        sendMessage(question);
+        setIsOpen(false);
     };
 
     return (
@@ -38,16 +38,12 @@ const Sidebar = ({ setQuery, isOpen, setIsOpen }) => {
                     <div className="logo-container">
                         <h2 className="chatveda-text">ChatVeda AI</h2>
                     </div>
-
                     <ul className="conversation-list">
                         {questions.map((question, index) => (
                             <li 
                                 key={index} 
-                                onClick={()  =>{
-                                    setQuery(question); 
-                                    setIsOpen(false);
-                                }}
-                                className='clickable-item'
+                                onClick={() => handleQuestionClick(question)}
+                                className="clickable-item"
                             >
                                 {question}
                             </li>

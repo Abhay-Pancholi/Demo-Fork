@@ -1,6 +1,7 @@
 /* Reset Styles now inser google fonts  */ 
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Devanagari&display=swap');
 
+
 body {
     font-family: 'Noto Serif Devanagari', serif;
 }
@@ -241,6 +242,21 @@ ul li a i {
     word-break: break-word;
     white-space: normal;
 }
+.welcome-message h2 {
+    font-size: 22px; /* Keep h2 slightly larger */
+    font-weight: bold;
+    margin-bottom: 10px; /* Space below Sanskrit text */
+}
+
+.welcome-message h3 {
+    font-size: 16px; /* Reduce size of English text */
+    margin-bottom: 6px; /* Adds space between lines */
+}
+
+.sanskrit-text {
+    margin-top: 12px; /* Extra spacing above first English translation */
+}
+
 
 /* Responsive Adjustments */
 @media (max-width: 768px) {
@@ -248,14 +264,14 @@ ul li a i {
         width: 90%;
     }
     .welcome-message h2 {
-        font-size: 1.5em;
+        font-size: 1em;
         margin-top: 50px;
     }
 }
 
 @media (max-width: 480px) {
     .welcome-message h2 {
-        font-size: 1.2em;
+        font-size: 1em;
     }
 }
 
@@ -437,6 +453,8 @@ header {
     /* margin-left: 250px;  */
     padding: 20px;
     width: calc(100% - 250px);
+   
+    padding-bottom: env(safe-area-inset-bottom);
 }
 
 
@@ -473,6 +491,7 @@ header {
     box-sizing: border-box;
     gap: 15px;
     height: 90px;
+    border-bottom: 1px solid #ddd;
 }
 
 
