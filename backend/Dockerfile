@@ -8,8 +8,11 @@ WORKDIR /app
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the application code
-COPY backend/ .
+# Copy the entire backend folder to preserve module structure
+COPY backend /app/backend
+
+# Set PYTHONPATH to include /app
+ENV PYTHONPATH="/app"
 
 # Expose port 8080 for Cloud Run
 EXPOSE 8080
