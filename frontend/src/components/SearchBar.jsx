@@ -15,7 +15,7 @@ const SearchBar = ({ query, setQuery, setChatHistory, language, setLanguage }) =
         ]);
 
         try {
-            const res = await fetch("https://chatveda.onrender.com/get_answer", {
+            const res = await fetch("https://backend-service-480596383542.us-central1.run.app/api/get_answer", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ question: query, language }) // Send selected language
