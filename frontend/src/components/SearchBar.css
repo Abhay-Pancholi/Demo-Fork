@@ -3,7 +3,7 @@
     align-items: center;
     gap: 10px;
     position: fixed;
-    bottom: 0;
+    bottom: 30px;
     width: calc(100% - 20px); /* Adjusted to fit within screen */
     background-color: white;
     padding: 10px;

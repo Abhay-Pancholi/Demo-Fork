@@ -589,6 +589,13 @@ header {
     border-radius: 4px;
 }
 
+.alert{
+    position: fixed;
+    bottom: -30px;
+    font-size: 12px;
+    left: 40px;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .navbar {

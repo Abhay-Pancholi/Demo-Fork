@@ -126,6 +126,7 @@ function App() {
                     isGenerating={isGenerating}
                     sendMessage={sendMessage}
                 />
+                <p class="alert"><i>ChatVeda can make mistakes. Model is under training.</i></p>
             </div>
         </div>
     );
