@@ -95,7 +95,7 @@ def get_mock_response():
 # Store ongoing conversations (thread tracking)
 active_threads = {}
 
-@app.route('/get_answer', methods=['POST'])
+@app.route('/api/get_answer', methods=['POST'])
 def ask_question():
     """Handles user queries and returns an AI response."""
     data = request.json
