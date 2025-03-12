@@ -24,6 +24,7 @@ const SearchBar = ({ query, setQuery, setChatHistory, language, setLanguage, set
             });
 
             const data = await res.json();
+            console.log(data);
 
             // Add bot response to chat history
             setChatHistory(prevChat => [
