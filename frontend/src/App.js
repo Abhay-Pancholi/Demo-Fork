@@ -43,7 +43,7 @@ function App() {
 
         try {
             // 3) Fetch the actual response from your server endpoint
-            const response = await fetch("https://chatveda.onrender.com/get_answer", {
+            const response = await fetch("https://backend-service-480596383542.us-central1.run.app/api/get_answer", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
