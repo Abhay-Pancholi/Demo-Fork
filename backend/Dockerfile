@@ -18,4 +18,4 @@ ENV PYTHONPATH="/app"
 EXPOSE 8080
 
 # Run the Flask app
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--timeout", "120", "backend.app:app"]
+CMD ["hypercorn", "backend.app:app", "--bind", "0.0.0.0:8080"]

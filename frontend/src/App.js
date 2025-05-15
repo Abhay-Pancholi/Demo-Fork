@@ -1,81 +1,146 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { sendQuestion, socket } from "./utlis/socketClient";
+import { FiMenu } from 'react-icons/fi';
+
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import SearchBar from './components/SearchBar';
 import ChatContainer from './components/ChatContainer';
-import './assets/styles.css';    // Your global styles
-import './assets/panel.css';     // Your sidebar panel styles
+import './assets/styles.css';
+import './assets/panel.css';
 
 function App() {
     const [query, setQuery] = useState("");
-    const [chatHistory, setChatHistory] = useState([]);   // Stores the conversation
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Sidebar open/close
-    const [showWelcome, setShowWelcome] = useState(true); // Controls welcome message
-    const [language, setLanguage] = useState("en");       // Track language selection
-    const [isGenerating, setIsGenerating] = useState(false); // Track API loading state
+    const [chatHistory, setChatHistory] = useState([]);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [showWelcome, setShowWelcome] = useState(true);
+    const [language, setLanguage] = useState("en");
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [buffer, setBuffer] = useState(""); // Buffer for incoming chunks
+    const [displayedText, setDisplayedText] = useState(""); // For typewriter effect
+    const intervalRef = useRef(null);
 
-    // Hide welcome message once we have any chat messages
     useEffect(() => {
         if (chatHistory.length > 0) {
             setShowWelcome(false);
         }
     }, [chatHistory]);
 
-    /**
-     * sendMessage: Appends a user message to chatHistory, then calls the server
-     * for a response and appends the response to chatHistory as well.
-     */
-    const sendMessage = async (messageText) => {
-        // Prevent sending if we are already waiting on a response
-        if (isGenerating) {
-            console.log("A request is already in progress. Please wait.");
-            return;
-        }
+    // Listen for streaming chunks and buffer them
 
-        // 1) Append user message to chat history
+    // Typewriter effect: move one character at a time from buffer to displayedText
+    useEffect(() => {
+        if (isGenerating && !intervalRef.current) {
+            intervalRef.current = setInterval(() => {
+                setBuffer((prevBuffer) => {
+                    if (prevBuffer.length > 0) {
+                        setDisplayedText((prevText) => prevText + prevBuffer[0]);
+                        return prevBuffer.slice(1);
+                    } else {
+                        clearInterval(intervalRef.current);
+                        intervalRef.current = null;
+                        return prevBuffer;
+                    }
+                });
+            }, 18);
+        }
+        if (!isGenerating) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+        }
+        return () => {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+        };
+    }, [isGenerating, buffer]);
+
+    // When streaming ends, update chatHistory with the full displayedText
+   useEffect(() => {
+    if (!isGenerating && displayedText) {
+        setChatHistory((prev) => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last && !last.isUser) {
+                last.text = displayedText;
+            }
+            return updated;
+        });
+        setDisplayedText("");
+    }
+}, [isGenerating]);
+
+
+    // Reset displayedText and buffer when a new message is sent
+    const sendMessage = async (messageText) => {
         setChatHistory((prev) => [
             ...prev,
-            { isUser: true, text: messageText }
+            { isUser: true, text: messageText },
+            { isUser: false, text: '', isAnalyzing: true }
         ]);
-
-        // 2) Indicate we are waiting for a response
-        setIsGenerating(true);
-
+        setTimeout(() => {
+            if (window && document) {
+                const chatContainer = document.querySelector('.chat-container');
+                if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        }, 100);
+        let firstChunk = true;
         try {
-            // 3) Fetch the actual response from your server endpoint
-            const response = await fetch("https://backend-service-480596383542.us-central1.run.app/api/get_answer", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    question: messageText,
-                    language: language
-                })
-            });
-
-            const data = await response.json();
-
-            // 4) Append the server's response to chat history
-            setChatHistory((prev) => [
-                ...prev,
-                {
-                    isUser: false,
-                    text: data.response,
-                    followUpQuestions: data.follow_up_questions || []
+            await sendQuestion({
+                question: messageText,
+                sessionId: "test",
+                language: language,
+                onStream: (chunk) => {
+                    setChatHistory((prev) => {
+                        const updated = [...prev];
+                        for (let i = updated.length - 1; i >= 0; i--) {
+                            if (!updated[i].isUser && (updated[i].isAnalyzing || updated[i].text !== undefined)) {
+                                if (updated[i].isAnalyzing) {
+                                    updated[i].isAnalyzing = false;
+                                }
+                                if (typeof chunk === 'object' && chunk.type === 'followups') {
+                                    updated[i].followUpQuestions = chunk.followups;
+                                } else {
+                                    updated[i].text += chunk;
+                                }
+                                break;
+                            }
+                        }
+                        return updated;
+                    });
+                    setTimeout(() => {
+                        if (window && document) {
+                            const chatContainer = document.querySelector('.chat-container');
+                            if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+                        }
+                    }, 50);
+                },
+                onDone: () => {
+                    setChatHistory((prev) => {
+                        const updated = [...prev];
+                        for (let i = updated.length - 1; i >= 0; i--) {
+                            if (!updated[i].isUser && !updated[i].isAnalyzing) {
+                                // Optionally mark as done
+                                break;
+                            }
+                        }
+                        return updated;
+                    });
+                },
+                onError: (err) => {
+                    setChatHistory((prev) => [
+                        ...prev,
+                        { isUser: false, text: `⚠️ Error: ${err.error || err}` }
+                    ]);
                 }
-            ]);
+            });
         } catch (error) {
-            console.error("Error fetching response:", error);
-            // Optionally display the error in the chat
             setChatHistory((prev) => [
                 ...prev,
-                { isUser: false, text: `Error: ${error.message}` }
+                { isUser: false, text: "⚠️ Error sending message. Please try again." }
             ]);
-        } finally {
-            setIsGenerating(false);
         }
     };
 
-    // Close the sidebar if the user clicks outside it
     const handleContentClick = () => {
         if (isSidebarOpen) {
             setIsSidebarOpen(false);
@@ -84,33 +149,49 @@ function App() {
 
     return (
         <div className={`app-container ${isSidebarOpen ? 'sidebar-open' : ''}`}>
-            {/* Navbar: passes onSearch, which calls sendMessage */}
+            {/* Hamburger icon always visible at the very top left when sidebar is closed */}
+            {!isSidebarOpen && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 98,
+                        left: 8,
+                        zIndex: 3000,
+                        background: '#fff',
+                        borderRadius: '50%',
+                        boxShadow: '0 2px 8px rgba(26,35,126,0.08)',
+                        width: 30,
+                        height: 30,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        border: '1px solid #e3e8ee'
+                    }}
+                    onClick={() => setIsSidebarOpen(true)}
+                >
+                    <FiMenu size={22} color='#1a237e' />
+                </div>
+            )}
             <Navbar onSearch={(q) => sendMessage(q)} isSidebarOpen={isSidebarOpen} />
-
-            {/* Sidebar: calls sendMessage when a question is clicked */}
             <Sidebar
                 sendMessage={sendMessage}
                 isOpen={isSidebarOpen}
                 setIsOpen={setIsSidebarOpen}
             />
 
-            {/* Show welcome message if no chat yet */}
             {showWelcome && (
                 <div className="welcome-message">
                     <h2>
-                        ॐ असतो मा सद्गमय। तमसो मा ज्योतिर्गमय। मृत्योर्मा अमृतं गमय। ॐ शान्तिः शान्तिः शान्तिः ॥
-                        <span role="img" aria-label="smile">🙏</span>
+                        ॐ असतो मा सद्गमय। तमसो मा ज्योतिर्गमय। मृत्योर्मा अमृतं गमय। ॐ शान्तिः शान्तिः शान्तिः ॥🙏
                     </h2>
-                    <h3 className="sanskrit-text">
-                        <i>- Om, Lead me from the unreal to the real,</i>
-                    </h3>
+                    <h3 className="sanskrit-text"><i>- Om, Lead me from the unreal to the real,</i></h3>
                     <h3><i>Lead me from darkness to light,</i></h3>
                     <h3><i>Lead me from death to immortality.</i></h3>
                     <h3><i>May peace be, may peace be, may peace be.</i></h3>
                 </div>
             )}
 
-            {/* Main content area (SearchBar + ChatContainer) */}
             <div className="main-content" onClick={handleContentClick}>
                 <SearchBar
                     query={query}
@@ -119,14 +200,15 @@ function App() {
                     language={language}
                     setLanguage={setLanguage}
                     setIsGenerating={setIsGenerating}
+                    sendMessage={sendMessage}
                 />
-
                 <ChatContainer
                     chatHistory={chatHistory}
                     isGenerating={isGenerating}
                     sendMessage={sendMessage}
+                    displayedText={displayedText}
                 />
-                <p class="alert"><i>ChatVeda can make mistakes. Model is under training.</i></p>
+                <p className="alert"><i>ChatVeda can make mistakes. Model is under training.</i></p>
             </div>
         </div>
     );

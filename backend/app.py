@@ -1,86 +1,154 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify
+from flask_socketio import SocketIO, emit
+from flask_cors import CORS
 import time
 import os
 import re
 import ast
-from openai import OpenAI
 import markdown
-from flask_cors import CORS  # Allows cross-origin requests from React
+from openai import OpenAI
+from dotenv import load_dotenv
+import logging
 
+
+# Load environment variables
+load_dotenv()
+
+# Flask app setup
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# OpenAI API key
-# os.environ["OPENAI_API_KEY"] = "ABC"
+# Logging setup
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+# SocketIO setup
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode='threading',
+    logger=True,
+    engineio_logger=True,
+    ping_timeout=60,
+    ping_interval=25,
+    max_http_buffer_size=1e8,
+    always_connect=True,
+    transports=['websocket', 'polling']
+)
+
+# OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+active_threads = {}
 
+# WebSocket events
+@socketio.on('connect')
+def handle_connect():
+    logger.info(f"Client connected: {request.sid}")
 
+@socketio.on('disconnect')
+def handle_disconnect():
+    logger.info(f"Client disconnected: {request.sid}")
 
+@socketio.on('ask_question')
+def handle_message(data):
+    sid = request.sid
+    user_input = data.get('question', '')
+    session_id = data.get('session_id', 'new')
+    language = data.get('language', 'en')
+
+    language_prompt = f"{user_input}. Please answer the question in {language} language."
+    logger.info(f"Prompt: {language_prompt}")
+
+    def generate():
+        try:
+            # Get or create thread
+            if session_id in active_threads:
+                thread_id = active_threads[session_id]
+            else:
+                thread = client.beta.threads.create()
+                thread_id = thread.id
+                active_threads[session_id] = thread_id
+
+            # Send user message
+            client.beta.threads.messages.create(
+                thread_id=thread_id,
+                role="user",
+                content=language_prompt
+            )
+
+            # Run assistant
+            run = client.beta.threads.runs.create(
+                thread_id=thread_id,
+                assistant_id="asst_Esyu2T2quwRAgOvkOmfIOcro"
+            )
+
+            # Wait for run to complete
+            while run.status in ["queued", "in_progress"]:
+                time.sleep(2)
+                run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
+
+            # Get final message
+            messages = client.beta.threads.messages.list(thread_id=thread_id)
+            full_response = messages.data[0].content[0].text.value if messages.data else "Error: No response."
+
+            # Extract follow-up questions
+            response_text, follow_up_questions = extract_follow_up_questions(full_response)
+
+            # Format the response as HTML
+            formatted_response = format_text(response_text)
+
+            # Stream the formatted response word-by-word
+            for word in formatted_response.split():
+                socketio.emit('stream_chunk', word + ' ', room=sid)
+                time.sleep(0.05)
+
+            # Emit follow-ups after streaming
+            socketio.emit('stream_followups', {'followups': follow_up_questions}, room=sid)
+            socketio.emit('stream_done', room=sid)
+
+        except Exception as e:
+            logger.error(f"Streaming error: {str(e)}")
+            socketio.emit('stream_error', {'error': str(e)}, room=sid)
+
+    socketio.start_background_task(generate)
+
+# REST endpoints
 @app.route('/')
 def home():
     return jsonify({"message": "Welcome to ChatVeda AI Backend!"})
 
-
-
-
 def extract_follow_up_questions(full_response):
-    """
-    Extracts follow-up questions from the response text when formatted as a Python list.
-    Returns a tuple: (formatted response without questions, list of extracted questions).
-    """
     follow_up_questions = []
-    response_text = full_response  
+    response_text = full_response
 
-    # Regular expression pattern to detect Python list format
     pattern = r'(\"follow_up_questions\":\s*\[.*?\])'
-
     match = re.search(pattern, full_response, re.DOTALL)
-    
-    if match:
-        question_section = match.group(1)  # Extract the full Python list string
-        try:
-            # Convert the extracted Python list string to an actual list using ast.literal_eval
-            extracted_dict = ast.literal_eval("{" + question_section + "}")  # Convert to dictionary
-            follow_up_questions = extracted_dict.get("follow_up_questions", [])  # Extract list
-            print(follow_up_questions)
-        except (SyntaxError, ValueError):
-            follow_up_questions = []  # If there's an error, return an empty list
 
-        # Remove the follow-up question section from the response text
-        response_text = full_response[:match.start()].strip()
+    if match:
+        try:
+            question_section = match.group(1)
+            extracted_dict = ast.literal_eval("{" + question_section + "}")
+            follow_up_questions = extracted_dict.get("follow_up_questions", [])
+            response_text = full_response[:match.start()].strip()
+        except (SyntaxError, ValueError):
+            pass
 
     return response_text, follow_up_questions
 
-
-
-# function for formatting api response
 def format_text(response_text):
-    """
-    Converts ChatVeda markdown-styled output into HTML for frontend rendering.
-    
-    :param text: The ChatVeda output with markdown-style formatting.
-    :return: HTML formatted string ready for frontend rendering.
-    """
-    # Convert markdown to HTML
     html_output = markdown.markdown(response_text)
-
-    """ Remove unwanted markdown or formatting from the response """
-    text = re.sub(r"```[a-zA-Z]*", "", html_output)  # Remove markdown-style code block indicators
-    text = text.strip()  # Remove leading/trailing spaces
-    return text
+    text = re.sub(r"```[a-zA-Z]*", "", html_output)
+    return text.strip()
 
 @app.route('/get_answer_mock', methods=['POST'])
 def get_mock_response():
-    """Returns a dummy response for UI testing."""
     data = request.json
     user_question = data.get("question", "")
-
     if not user_question:
         return jsonify({"error": "No question provided"}), 400
 
-    # Mock response (simulating OpenAI Assistant's formatted response)
     mock_response = {
-        "response": f"<b>ChatVeda AI:</b> This is a mock response for your question This is a mock response for your questionThis is a mock response for your questionThis is a mock response for your question: <i>{user_question}</i>.",
+        "response": f"<b>ChatVeda AI:</b> Mock response for your question: <i>{user_question}</i>.",
         "follow_up_questions": [
             "What are the benefits of Karma Yoga?",
             "Can Karma Yoga help in personal growth?",
@@ -88,78 +156,61 @@ def get_mock_response():
         ],
         "session_id": "test_session"
     }
-
     return jsonify(mock_response)
-
-
-# Store ongoing conversations (thread tracking)
-active_threads = {}
 
 @app.route('/api/get_answer', methods=['POST', 'OPTIONS'])
 def ask_question():
-    """Handles user queries and returns an AI response."""
     if request.method == 'OPTIONS':
         return '', 204
+
     data = request.json
     user_question = data.get("question", "")
     session_id = data.get("session_id", "new")
     language = data.get("language", "en")
+
     if not user_question:
         return jsonify({"error": "No question provided"}), 400
 
     language_prompt = f"{user_question} Please translate in {language}"
-    # Use an existing thread if session_id is provided, else create a new thread
+
     if session_id in active_threads:
         thread_id = active_threads[session_id]
     else:
         thread = client.beta.threads.create()
         thread_id = thread.id
-        active_threads[session_id] = thread_id  
+        active_threads[session_id] = thread_id
 
-    # Add user message to the thread
     client.beta.threads.messages.create(
         thread_id=thread_id,
         role="user",
         content=language_prompt
     )
 
-    # Run the assistant
     run = client.beta.threads.runs.create(
         thread_id=thread_id,
         assistant_id="asst_Esyu2T2quwRAgOvkOmfIOcro"
     )
 
-    # Wait for completion
     while run.status in ["queued", "in_progress"]:
         time.sleep(2)
         run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
-        print(f"Run Status: {run.status}")  
 
-    # Retrieve assistant response
     messages = client.beta.threads.messages.list(thread_id=thread_id)
+    full_response = messages.data[0].content[0].text.value if messages.data else "Error: Assistant did not return a response."
 
-    if messages.data:
-        full_response = messages.data[0].content[0].text.value
-    else:
-        full_response = "Error: Assistant did not return a response."
-
-    print("Raw Assistant Response:", full_response)  
-
-    # Extract follow-up questions properly
     response_text, follow_up_questions = extract_follow_up_questions(full_response)
-
-    # Apply formatting to response
     formatted_response = format_text(response_text)
 
-    return jsonify({"response": formatted_response, "follow_up_questions": follow_up_questions, "session_id": session_id})
-
+    return jsonify({
+        "response": formatted_response,
+        "follow_up_questions": follow_up_questions,
+        "session_id": session_id
+    })
 
 @app.route('/update_instructions', methods=['POST'])
 def update_instructions():
-    """Updates the assistant's instructions dynamically."""
     data = request.json
     new_instructions = data.get("instructions", "")
-
     if not new_instructions:
         return jsonify({"error": "No new instructions provided"}), 400
 
@@ -168,15 +219,13 @@ def update_instructions():
             assistant_id="asst_Esyu2T2quwRAgOvkOmfIOcro",
             instructions=new_instructions
         )
-        return jsonify({"message": "Instructions updated successfully", "assistant_id": updated_assistant.id})
+        return jsonify({"message": "Instructions updated", "assistant_id": updated_assistant.id})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/add_files', methods=['POST'])
 def add_files():
-    """Adds new files to the assistant's vector store."""
-    files = request.files.getlist("files")  # Accept multiple files
-
+    files = request.files.getlist("files")
     if not files:
         return jsonify({"error": "No files uploaded"}), 400
 
@@ -185,15 +234,17 @@ def add_files():
         uploaded_file = client.files.create(file=file, purpose="assistants")
         file_ids.append(uploaded_file.id)
 
-    # Update vector store
     updated_vector_store = client.beta.vector_stores.update(
         vector_store_id="vs_67b0a3af426c81919b944df29f27d7c2",
-        file_ids=file_ids  # Add new file IDs to the existing vector store
+        file_ids=file_ids
     )
 
-    return jsonify({"message": "Files added successfully", "vector_store_id": updated_vector_store.id})
+    return jsonify({
+        "message": "Files added",
+        "vector_store_id": updated_vector_store.id
+    })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
-    app.run(host="0.0.0.0", port=port)
-
+    print(f"Server running on port {port}")
+    socketio.run(app, host="0.0.0.0", port=port, debug=True, use_reloader=False, allow_unsafe_werkzeug=True)

@@ -29,11 +29,17 @@
     padding: 10px 15px;
     cursor: pointer;
     border-radius: 50%;
+    opacity: 0.9;
+    transition: opacity 0.3s;
 }
 
 .search-bar button:disabled {
     background-color: #ccc;
     cursor: not-allowed;
+}
+
+.search-bar button:hover {
+    opacity: 1;
 }
 
 /* Style for Language Dropdown */
@@ -52,4 +58,11 @@
 .search-bar select:hover,
 .search-bar select:focus {
     border-color: #007bff;
+}
+
+/* Add a subtle focus effect for the input */
+.search-bar input:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 4px #007bff33;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
