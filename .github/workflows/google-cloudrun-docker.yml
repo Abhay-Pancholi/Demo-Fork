@@ -8,7 +8,6 @@ on:
 env:
   PROJECT_ID: 'chatvedaai' # TODO: update to your Google Cloud project ID
   REGION: 'us-central1' # TODO: update to your region
-  WORKLOAD_IDENTITY_PROVIDER: 'projects/480596383542/locations/global/workloadIdentityPools/github/providers/github' # TODO: update to your workload identity provider
   GCP_SERVICE_ACCOUNT: chatveda-app@chatvedaai.iam.gserviceaccount.com
 
   FRONTEND_SERVICE: 'frontend-service' # Cloud Run Service Name for Frontend
