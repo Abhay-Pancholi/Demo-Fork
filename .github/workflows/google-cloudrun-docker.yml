@@ -6,14 +6,14 @@ on:
       - main
 
 env:
-  PROJECT_ID: 'inlaid-vehicle-452906-k5' # TODO: update to your Google Cloud project ID
+  PROJECT_ID: 'chatvedaai' # TODO: update to your Google Cloud project ID
   REGION: 'us-central1' # TODO: update to your region
   WORKLOAD_IDENTITY_PROVIDER: 'projects/480596383542/locations/global/workloadIdentityPools/github/providers/github' # TODO: update to your workload identity provider
-  GCP_SERVICE_ACCOUNT: github-actions@inlaid-vehicle-452906-k5.iam.gserviceaccount.com
+  GCP_SERVICE_ACCOUNT: chatveda-app@chatvedaai.iam.gserviceaccount.com
 
   FRONTEND_SERVICE: 'frontend-service' # Cloud Run Service Name for Frontend
   BACKEND_SERVICE: 'backend-service' # Cloud Run Service Name for Backend
-  ARTIFACT_REPO: 'gh-demo' # Name of Artifact Registry repository
+  ARTIFACT_REPO: 'chatvedaai-repo' # Name of Artifact Registry repository
 
 jobs:
   deploy:
@@ -31,9 +31,7 @@ jobs:
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@v2'
         with:
-          workload_identity_provider: '${{ env.WORKLOAD_IDENTITY_PROVIDER }}'
           service_account: '${{ env.GCP_SERVICE_ACCOUNT }}'
-          audience: 'https://iam.googleapis.com/${{ env.WORKLOAD_IDENTITY_PROVIDER }}'
 
       # Authenticate Docker with Google Artifact Registry
       - name: 'Docker Auth'
