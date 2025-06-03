@@ -30,7 +30,7 @@ jobs:
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@v2'
         with:
-          service_account: '${{ env.GCP_SERVICE_ACCOUNT }}'
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
       # Authenticate Docker with Google Artifact Registry
       - name: 'Docker Auth'
