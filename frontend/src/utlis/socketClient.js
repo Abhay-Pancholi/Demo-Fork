@@ -1,7 +1,7 @@
 import { io } from "socket.io-client";
 
 // Establish WebSocket connection
-const socket = io("wss://backend-service-480596383542.us-central1.run.app", {
+const socket = io("wss://backend-service-654291006122.us-central1.run.app", {
   transports: ['polling', 'websocket'],
   withCredentials: true,
   reconnection: true,
